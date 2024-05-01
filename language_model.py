@@ -3,10 +3,13 @@
 import argparse
 from itertools import product
 import math
+import os
 import nltk
 from pathlib import Path
 
 from preprocess import preprocess
+from stats import calculate_statistics
+from tokenize_text import tokenize_text
 
 
 def load_data(data_dir):
@@ -22,8 +25,10 @@ def load_data(data_dir):
         The train and test sets, as lists of sentences.
 
     """
-    train_path = data_dir.joinpath('train.txt').absolute().as_posix()
-    test_path  = data_dir.joinpath('test.txt').absolute().as_posix()
+    # train_path = data_dir.joinpath('train.txt').absolute().as_posix()
+    train_path = "./data/train/train.txt"
+    # test_path  = data_dir.joinpath('test.txt').absolute().as_posix()
+    test_path  = data_dir
 
     with open(train_path, 'r') as f:
         train = [l.strip() for l in f.readlines()]
@@ -210,19 +215,32 @@ if __name__ == '__main__':
             help='Number of sentences to generate (default 10)')
     args = parser.parse_args()
 
-    # Load and prepare train/test data
-    data_path = Path(args.data)
-    train, test = load_data(data_path)
+    results = []
+    for root, dirs, files in os.walk(args.data):
+        for file in files:
+            data_path = Path(os.path.join(root, file))
 
-    print("Loading {}-gram model...".format(args.n))
-    lm = LanguageModel(train, args.n, laplace=args.laplace)
-    print("Vocabulary size: {}".format(len(lm.vocab)))
+            train, _ = load_data(data_path)
+            # print("Loading {}-gram model...".format(args.n))
+            lm = LanguageModel(train, args.n, laplace=args.laplace)
+            # print("Vocabulary size: {}".format(len(lm.vocab)))
 
-    print("Generating sentences...")
-    for sentence, prob in lm.generate_sentences(args.num):
-        print("{} ({:.5f})".format(sentence, prob))
+            _, test = load_data(data_path)
+            test = " ".join(test)
+            text = tokenize_text(test)
 
-    perplexity = lm.perplexity(test)
-    print("Model perplexity: {:.3f}".format(perplexity))
-    print("")
 
+            # print("Generating sentences...")
+            # for sentence, prob in lm.generate_sentences(args.num):
+            #     print("{} ({:.5f})".format(sentence, prob))
+
+            perplexity = lm.perplexity(test)
+            print("Model perplexity: {:.3f}".format(perplexity))
+            print("")
+
+            results.append(perplexity)
+
+    # Calculate and print statistics
+    stats = calculate_statistics(results)
+    for stat, value in stats.items():
+        print(f"{stat}: {value}")
